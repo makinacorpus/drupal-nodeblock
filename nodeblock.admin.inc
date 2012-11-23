@@ -65,7 +65,7 @@ function nodeblock_admin_reports_form($form, &$form_state) {
     ),
   );
 
-  $query = db_select(NODEBLOCK_TABLENAME, 'nb');
+  $query = db_select('nodeblock', 'nb');
   $query->fields('nb');
   $query->addField('n', 'status');
   $query->addField('n', 'title', 'node_title');

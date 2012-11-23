@@ -18,11 +18,6 @@
 const NODEBLOCK_VIEW_MODE     = 'nodeblock';
 
 /**
- * Table name.
- */
-const NODEBLOCK_TABLENAME     = 'nodeblock';
-
-/**
  * Default cache mode.
  */
 const NODEBLOCK_CACHE_DEFAULT = DRUPAL_CACHE_PER_ROLE;
@@ -68,6 +63,13 @@ function nodeblock_create_access($node) {
 /**
  * Menu access helper.
  */
+function nodeblock_edit_access($node) {
+  return user_access('create node block') && node_access('update', $node) && nodeblock_node_has_block($node);
+}
+
+/**
+ * Menu access helper.
+ */
 function nodeblock_remove_access($node) {
   return user_access('create node block') && node_access('update', $node) && nodeblock_node_has_block($node);
 }
@@ -84,16 +86,25 @@ function nodeblock_menu() {
     'page arguments'   => array('nodeblock_create_form', 1),
     'access callback'  => 'nodeblock_create_access',
     'access arguments' => array(1),
-    'type'             => MENU_LOCAL_ACTION | MENU_VISIBLE_IN_BREADCRUMB,
+    'type'             => MENU_LOCAL_ACTION,
+    'file'             => 'nodeblock.pages.inc',
+  );
+  $items['node/%node/edit-block'] = array(
+    'title'            => "Edit block",
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('nodeblock_create_form', 1),
+    'access callback'  => 'nodeblock_edit_access',
+    'access arguments' => array(1),
+    'type'             => MENU_LOCAL_ACTION,
     'file'             => 'nodeblock.pages.inc',
   );
   $items['node/%node/remove-block'] = array(
-    'title' => "Delete block",
+    'title'            => "Delete block",
     'page callback'    => 'drupal_get_form',
     'page arguments'   => array('nodeblock_remove_form', 1),
     'access callback'  => 'nodeblock_remove_access',
     'access arguments' => array(1),
-    'type'             => MENU_LOCAL_ACTION | MENU_VISIBLE_IN_BREADCRUMB,
+    'type'             => MENU_LOCAL_ACTION,
     'file'             => 'nodeblock.pages.inc',
   );
 
@@ -125,7 +136,7 @@ function nodeblock_menu() {
 function nodeblock_block_info() {
 
   // @todo Should we cache this somewhere?
-  $info = db_select(NODEBLOCK_TABLENAME, 'nb')
+  $info = db_select('nodeblock', 'nb')
     ->fields('nb', array('delta', 'title'))
     ->execute()
     ->fetchAllKeyed();
@@ -156,15 +167,21 @@ function nodeblock_entity_info_alter(&$entity_info) {
  */
 function nodeblock_block_view($delta) {
 
-  $query = "SELECT nid FROM {nodeblock} WHERE delta = :delta";
-  $nid   = db_query($query, array(':delta' => $delta))->fetchField();
+  $query = "SELECT nid, title FROM {nodeblock} WHERE delta = :delta";
+  $data  = db_query($query, array(':delta' => $delta))->fetchObject();
 
-  if ($nid && ($node = node_load($nid)) && node_access('view', $node)) {
+  if ($data && $data->nid && ($node = node_load($data->nid)) && node_access('view', $node)) {
     // node_view() will ensure translated nodes to be displayed in the user
     // language for display, beware of caching!
-    return array(
-      'subject' => check_plain($node->title),
-      'content' => node_view($node, NODEBLOCK_VIEW_MODE),
-    );
+    if ('<none>' === $data->title) {
+      return array(
+        'content' => node_view($node, NODEBLOCK_VIEW_MODE),
+      );
+    } else {
+      return array(
+        'subject' => empty($data->title) ? $node->title : $data->title,
+        'content' => node_view($node, NODEBLOCK_VIEW_MODE),
+      );
+    }
   }
 }

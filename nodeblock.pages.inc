@@ -20,35 +20,69 @@ function nodeblock_delta_exists($delta) {
  */
 function nodeblock_create_form($form, &$form_state, $node) {
 
+  // Select item if exists.
+  $values = db_select('nodeblock', 'nb')
+    ->fields('nb')
+    ->condition('nb.nid', $node->nid)
+    ->execute()
+    ->fetchObject();
+
+  // Ensure defaults.
+  if ($values) {
+    $exists = TRUE;
+  } else {
+    $values = (object)array(
+      'nid'   => $node->nid,
+      'info'  => check_plain($node->title),
+      'title' => NULL,
+      'delta' => NULL,
+    );
+    $exists = FALSE;
+  }
+
+  $form['exists'] = array(
+    '#type'  => 'value',
+    '#value' => $exists,
+  );
   $form['nid'] = array(
     '#type'  => 'value',
-    '#value' => $node->nid,
+    '#value' => $values->nid,
   );
 
-  $form['title'] = array(
+  $form['info'] = array(
     '#title'         => t("Administrative title"),
     '#type'          => 'textfield',
     '#required'      => TRUE,
-    '#default_value' => check_plain($node->title),
+    '#default_value' => $values->info,
     '#description'   => t("This name will only be displayed in administration screens"),
   );
 
   $form['delta'] = array(
-    '#type'         => 'machine_name',
-    '#title'        => t("Identifier"),
-    '#required'     => TRUE,
-    '#machine_name' => array(
-      'exists'      => 'nodeblock_delta_exists',
-      'source'      => array('title'),
-      'label'       => t("Identifier"),
+    '#type'          => 'machine_name',
+    '#title'         => t("Identifier"),
+    '#required'      => TRUE,
+    '#machine_name'  => array(
+      'exists'       => 'nodeblock_delta_exists',
+      'source'       => array('info'),
+      'label'        => t("Identifier"),
     ),
+    '#default_value' => $values->delta,
+    '#disabled'      => $exists,
+  );
+
+  $form['title'] = array(
+    '#title'         => t("Block title"),
+    '#type'          => 'textfield',
+    '#required'      => FALSE,
+    '#default_value' => $values->title,
+    '#description'   => t("Block title for override and use with context, defaults to the node title. Write <em>&lt;none&gt;</em> for explicit no title."),
   );
 
   $form['actions'] = array(
     '#type'  => 'actions',
     'submit' => array(
       '#type'  => 'submit',
-      '#value' => t("Create"),
+      '#value' => $exists ? t("Update") : t("Create"),
     ),
   );
 
@@ -60,14 +94,13 @@ function nodeblock_create_form($form, &$form_state, $node) {
  */
 function nodeblock_create_form_validate($form, &$form_state) {
 
-  $nid   = $form_state['values']['nid'];
-  $delta = $form_state['values']['delta'];
+  $nid    = $form_state['values']['nid'];
+  $exists = $form_state['values']['exists'];
+  $delta  = $form_state['values']['delta'];
 
   if (!$node = node_load($nid)) {
     form_set_error(NULL, t("This node does not exists"));
-  } else if (nodeblock_node_has_block($node)) {
-    form_set_error(NULL, t("This node already has a block"));
-  } else if (nodeblock_delta_exists($delta)) {
+  } else if (!$exists && nodeblock_delta_exists($delta)) {
     form_set_error('delta', t("This delta already exists"));
   }
 }
@@ -77,19 +110,31 @@ function nodeblock_create_form_validate($form, &$form_state) {
  */
 function nodeblock_create_form_submit($form, &$form_state) {
 
-  $nid   = $form_state['values']['nid'];
-  $delta = $form_state['values']['delta'];
-  $title = $form_state['values']['title'];
+  $nid    = $form_state['values']['nid'];
+  $exists = $form_state['values']['exists'];
+  $delta  = $form_state['values']['delta'];
+  $info   = $form_state['values']['info'];
+  $title  = $form_state['values']['title'];
 
-  db_insert(NODEBLOCK_TABLENAME)
+  db_merge('nodeblock')
+    ->key(array(
+      'nid' => (int)$nid,
+    ))
     ->fields(array(
       'nid'   => (int)$nid,
-      'delta' => check_plain($delta),
-      'title' => check_plain($title),
+      'delta' => $delta,
+      'info'  => $info,
+      'title' => $title,
     ))
     ->execute();
 
-  drupal_set_message(t("New block created"));
+  if ($exists) {
+    drupal_set_message(t("New block created with delta %delta", array(
+      '%delta' => $delta,
+    )));
+  } else {
+    drupal_set_message(t("Block info has been updated"));
+  }
 
   $form_state['redirect'] = 'node/' . $nid;
 }
@@ -128,7 +173,7 @@ function nodeblock_remove_form_submit($form, &$form_state) {
 
   $nid = $form_state['values']['nid'];
 
-  db_delete(NODEBLOCK_TABLENAME)
+  db_delete('nodeblock')
     ->condition('nid', $nid)
     ->execute();
 
