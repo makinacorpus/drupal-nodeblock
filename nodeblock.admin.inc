@@ -11,6 +11,7 @@
 function nodeblock_admin_form($form, &$form_state) {
 
   $cache_options = array(
+    DRUPAL_NO_CACHE                               => t("No cache"),
     DRUPAL_CACHE_GLOBAL                           => t("Global (bypasses access)"),
     DRUPAL_CACHE_PER_PAGE                         => t("Per page (bypasses access)"),
     DRUPAL_CACHE_PER_ROLE                         => t("Per role"),
