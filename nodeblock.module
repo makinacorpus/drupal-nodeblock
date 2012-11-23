@@ -1,0 +1,170 @@
+<?php
+
+/**
+ * @file
+ * This is a über module!
+ *
+ * THIS IS FOR NODES AND NOT ENTITIES, BECAUSE ENTITY API SUCKS IN BOTH CORE
+ * AND CONTRIB. CORE HAD A GOOD IDEA WHILE CONTRIB KILLED IT.
+ *
+ * In Drupal 8 I don't know if this will be a needed module but this will be
+ * easier to implement because everything will be mutualized at the Entity API
+ * level and we would not need node type exceptions.
+ */
+
+/**
+ * View mode name.
+ */
+const NODEBLOCK_VIEW_MODE     = 'nodeblock';
+
+/**
+ * Table name.
+ */
+const NODEBLOCK_TABLENAME     = 'nodeblock';
+
+/**
+ * Default cache mode.
+ */
+const NODEBLOCK_CACHE_DEFAULT = DRUPAL_CACHE_PER_ROLE;
+
+/**
+ * Cache mode variable name.
+ */
+const NODEBLOCK_CACHE_VAR     = 'nodeblock_block_cache';
+
+/**
+ * Implements hook_permission().
+ */
+function nodeblock_permission() {
+  return array(
+    'create node block' => array(
+      'title'       => t("Create node blocks"),
+      'description' => t("With this permission, users can create blocks for their nodes. Per node permission will be determined following node access rights."),
+    ),
+  );
+}
+
+/**
+ * Tell if the given node has a block.
+ *
+ * @param object $node
+ *   Node object.
+ *
+ * @return boolean
+ *   True if node has a bloc false else.
+ */
+function nodeblock_node_has_block($node) {
+  // @todo EXCESSIVE QUERY SPOTTED!!!
+  return (bool)db_query("SELECT 1 FROM {nodeblock} WHERE nid = :nid", array(':nid' => $node->nid))->fetchField();
+}
+
+/**
+ * Menu access helper.
+ */
+function nodeblock_create_access($node) {
+  return user_access('create node block') && node_access('update', $node) && !nodeblock_node_has_block($node);
+}
+
+/**
+ * Menu access helper.
+ */
+function nodeblock_remove_access($node) {
+  return user_access('create node block') && node_access('update', $node) && nodeblock_node_has_block($node);
+}
+
+/**
+ * Implements hook_menu().
+ */
+function nodeblock_menu() {
+  $îtems = array();
+
+  $items['node/%node/create-block'] = array(
+    'title'            => "Create block",
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('nodeblock_create_form', 1),
+    'access callback'  => 'nodeblock_create_access',
+    'access arguments' => array(1),
+    'type'             => MENU_LOCAL_ACTION | MENU_VISIBLE_IN_BREADCRUMB,
+    'file'             => 'nodeblock.pages.inc',
+  );
+  $items['node/%node/remove-block'] = array(
+    'title' => "Delete block",
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('nodeblock_remove_form', 1),
+    'access callback'  => 'nodeblock_remove_access',
+    'access arguments' => array(1),
+    'type'             => MENU_LOCAL_ACTION | MENU_VISIBLE_IN_BREADCRUMB,
+    'file'             => 'nodeblock.pages.inc',
+  );
+
+  $items['admin/config/content/nodeblock'] = array(
+    'title'            => "Node blocks",
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('nodeblock_admin_form'),
+    'access arguments' => array('administer site configuration'),
+    'type'             => MENU_NORMAL_ITEM,
+    'file'             => 'nodeblock.admin.inc',
+    'description'      => "Configure basic node blocks behavior, features and content type restrictions.",
+  );
+  $items['admin/reports/nodeblock'] = array(
+    'title'            => "Node block list",
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('nodeblock_admin_reports_form'),
+    'access arguments' => array('administer site configuration'),
+    'type'             => MENU_NORMAL_ITEM,
+    'file'             => 'nodeblock.admin.inc',
+    'description'      => "List all known node blocks and audit the system.",
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function nodeblock_block_info() {
+
+  // @todo Should we cache this somewhere?
+  $info = db_select(NODEBLOCK_TABLENAME, 'nb')
+    ->fields('nb', array('delta', 'title'))
+    ->execute()
+    ->fetchAllKeyed();
+
+  // You still can use hook_block_info_alter() to change this manually.
+  $cachemode = variable_get(NODEBLOCK_CACHE_VAR, NODEBLOCK_CACHE_DEFAULT);
+
+  array_walk($info, function (&$value, $key) use ($cachemode) {
+    $value = array(
+      'info'  => $value,
+      'cache' => $cachemode,
+    );
+  });
+
+  return $info;
+}
+
+/**
+ * Implements hook_entity_info_alter().
+ */
+function nodeblock_entity_info_alter(&$entity_info) {
+  $entity_info['node']['view modes'][NODEBLOCK_VIEW_MODE]['label'] = t("Node as block");
+  $entity_info['node']['view modes'][NODEBLOCK_VIEW_MODE]['custom settings'] = TRUE;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function nodeblock_block_view($delta) {
+
+  $query = "SELECT nid FROM {nodeblock} WHERE delta = :delta";
+  $nid   = db_query($query, array(':delta' => $delta))->fetchField();
+
+  if ($nid && ($node = node_load($nid)) && node_access('view', $node)) {
+    // node_view() will ensure translated nodes to be displayed in the user
+    // language for display, beware of caching!
+    return array(
+      'subject' => check_plain($node->title),
+      'content' => node_view($node, NODEBLOCK_VIEW_MODE),
+    );
+  }
+}

@@ -1,0 +1,5 @@
+name = Node block
+description = Create one block per node as necessary, those blocks will be delegated to block UI or be usable with Context.
+core = 7.x
+package = Utility
+php = 5.3

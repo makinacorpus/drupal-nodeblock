@@ -1,0 +1,42 @@
+<?php
+
+/**
+ * @file
+ * Installation and schema related functions for the OAuth module
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function nodeblock_schema() {
+  $schema = array();
+
+  $schema['nodeblock'] = array(
+    'description' => 'Stores node references for making blocks',
+    'fields' => array(
+      'nid' => array(
+        'type'        => 'int',
+        'description' => "Node identifier",
+        'not null'    => TRUE,
+      ),
+      'delta' => array(
+        'description' => "Block machine name, default computed from node identifier",
+        'type'        => 'varchar',
+        'length'      => 64,
+        'not null'    => TRUE,
+      ),
+      'title' => array(
+        'description' => "Administrative title, default computed from node title",
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => FALSE,
+      ),
+    ),
+    'primary key' => array('nid'),
+    'indexes' => array(
+      'nodeblock_delta_idx' => array('delta'),
+    ),
+  );
+
+  return $schema;
+}
