@@ -149,8 +149,17 @@ function nodeblock_block_info() {
 
   $info = array();
   foreach ($records as $data) {
+
+    if ($data->info) {
+      $title = check_plain($data->info);
+    } else if ($data->title && '<none>' !== $data->title) {
+      $title = check_plain($data->title);
+    } else {
+      $title = check_plain($data->node_title);
+    }
+
     $info[$data->delta] = array(
-      'info'  => !empty($data->info) ? $data->info : (!empty($data->title) ? $data->title : $data->node_title),
+      'info'  => $title,
       'cache' => $cachemode,
     );
   }
