@@ -20,7 +20,7 @@ const NODEBLOCK_VIEW_MODE     = 'nodeblock';
 /**
  * Default cache mode.
  */
-const NODEBLOCK_CACHE_DEFAULT = DRUPAL_CACHE_PER_ROLE;
+const NODEBLOCK_CACHE_DEFAULT = DRUPAL_CACHE_PER_PAGE;
 
 /**
  * Cache mode variable name.
