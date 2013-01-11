@@ -180,12 +180,41 @@ function nodeblock_entity_info_alter(&$entity_info) {
  */
 function nodeblock_block_view($delta) {
 
+  global $language;
+
   $query = "SELECT nid, title FROM {nodeblock} WHERE delta = :delta";
   $data  = db_query($query, array(':delta' => $delta))->fetchObject();
 
   if ($data && $data->nid && ($node = node_load($data->nid)) && node_access('view', $node)) {
-    // node_view() will ensure translated nodes to be displayed in the user
-    // language for display, beware of caching!
+
+    // Handle gracefully multilingual sites.
+    if (drupal_multilingual() && $node->language !== $language->language && $node->tnid) {
+
+      $found = FALSE;
+
+      if (module_exists('translation') && ($translations = translation_node_get_translations($node->tnid))) {
+        foreach ($translations as $translation) {
+          if ($translation->language === $language->language) {
+            // Ensure the user can read the translation.
+            if (($translation = node_load($translation->nid)) && node_access('view', $translation)) {
+              $found = TRUE;
+
+              $node = $translation;
+            }
+
+            // Whatever happens, only one node can exist per language,
+            // and we found it.
+            continue;
+          }
+        }
+      }
+
+      if (!$found) {
+        // Cannot display the block if the languages don't match.
+        return;
+      }
+    }
+
     if ('<none>' === $data->title) {
       return array(
         'content' => node_view($node, NODEBLOCK_VIEW_MODE),
