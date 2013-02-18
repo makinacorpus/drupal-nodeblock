@@ -78,59 +78,6 @@ function _nodeblock_edit_form_set_breadcrumb($message, array $variables = array(
 }
 
 /**
- * Overview form.
- */
-function nodeblock_edit_page_overview_form($form, &$form_state) {
-
-  $options = array();
-  foreach (list_themes() as $theme => $info) {
-    foreach (system_region_list($theme) as $region => $description) {
-
-      $region_id = $region . '.' . $theme;
-
-      if (!nodeblock_edit_region_is_enabled($region_id)) {
-        continue;
-      }
-
-      $total_count = db_select('block', 'b')
-        ->condition('theme', $theme)
-        ->condition('region', $region)
-        ->countQuery()
-        ->execute()
-        ->fetchField();
-
-      $custom_count = db_select('block', 'b')
-        ->condition('theme', $theme)
-        ->condition('region', $region)
-        ->condition('nodeblock_edit_custom', 1)
-        ->countQuery()
-        ->execute()
-        ->fetchField();
-
-      $options[$region_id] = array(
-        'theme'  => $info->info['name'],
-        'name'   => $description,
-        'custom' => $custom_count,
-        'total'  => $total_count,
-      );
-    }
-  }
-
-  $form['regions'] = array(
-    '#type'    => 'tableselect',
-    '#options' => $options,
-    '#header'  => array(
-      'theme'  => t("Theme"),
-      'name'   => t("Region"),
-      'custom' => t("Custom block count"),
-      'total'  => t("Total block count"),
-    ),
-  );
-
-  return $form;
-}
-
-/**
  * Settings form.
  */
 function nodeblock_edit_page_settings_form($form, &$form_state) {

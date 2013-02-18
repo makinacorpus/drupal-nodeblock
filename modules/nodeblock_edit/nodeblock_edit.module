@@ -54,24 +54,11 @@ function nodeblock_edit_menu() {
   $items = array();
 
   $items['admin/structure/region'] = array(
-    'title'            => "Regions",
-    'description'      => "List all known regions for the current default theme.",
-    'page callback'    => 'drupal_get_form',
-    'page arguments'   => array('nodeblock_edit_page_overview_form'),
-    'access arguments' => array('nodeblock edit manage block'),
-    'type'             => MENU_NORMAL_ITEM,
-    'file'             => 'nodeblock_edit.pages.inc',
-  );
-  $items['admin/structure/region/list'] = array(
-    'title'            => t("Overview"),
-    'type'             => MENU_DEFAULT_LOCAL_TASK,
-  );
-  $items['admin/structure/region/settings'] = array(
-    'title'            => "Settings",
+    'title'            => "Regions edit settings",
     'page callback'    => 'drupal_get_form',
     'page arguments'   => array('nodeblock_edit_page_settings_form'),
     'access arguments' => array('administer site configuration'),
-    'type'             => MENU_LOCAL_TASK,
+    'type'             => MENU_NORMAL_ITEM,
     'file'             => 'nodeblock_edit.pages.inc',
   );
   $items['admin/structure/region/%nodeblock_edit_region'] = array(
