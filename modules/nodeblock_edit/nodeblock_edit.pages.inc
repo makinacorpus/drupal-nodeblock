@@ -24,7 +24,6 @@ function nodeblock_edit_element_validate_filter_empty($element, &$form_state, $f
  *   Complete item trail including the given item as last item.
  */
 function _nodeblock_edit_menu_item_get_trail($item) {
-
   $trail = array();
 
   do {
@@ -34,9 +33,7 @@ function _nodeblock_edit_menu_item_get_trail($item) {
     if (!isset($item['module'])) {
       $item['module'] = 'none';
     }
-
     array_unshift($trail, $item);
-
   } while ($item = _menu_link_find_parent($item));
 
   array_unshift($trail, array(
@@ -389,7 +386,30 @@ function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info
  * Edit or move block into region submit handler.
  */
 function nodeblock_edit_page_region_block_form_submit_edit($form, &$form_state) {
-  
+
+  list($region, $theme) = $form_state['values']['region_info'];
+
+  foreach ($form_state['values']['blocks'] as $id => $data) {
+    if (isset($data['weight'])) {
+
+      list($module, $delta) = explode('.', $id, 2);
+
+      db_update('block')
+        ->fields(array(
+          'weight' => (int)$data['weight'],
+        ))
+        ->condition('region', $region)
+        ->condition('theme',  $theme)
+        ->condition('module', $module)
+        ->condition('delta',  $delta)
+        ->execute();
+    }
+  }
+
+  drupal_set_message(t("Blocks have been moved."));
+
+  // Empty block cache.
+  cache_clear_all();
 }
 
 /**
