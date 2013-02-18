@@ -28,7 +28,30 @@ function nodeblock_admin_form($form, &$form_state) {
     '#description'   => t("This cache mode will be applied to all node block per default, change this and all blocks will inherit from the new mode. If you are working on a translated site, choose no cache. For advanced cache tuning, use the <em>hook_block_info_alter()</em> hook instead."),
   );
 
+  $form[NODEBLOCK_VAR_TYPES] = array(
+    '#type'          => 'checkboxes',
+    '#title'         => t("Enabled on node types"),
+    '#options'       => node_type_get_names(),
+    '#default_value' => variable_get(NODEBLOCK_VAR_TYPES, array()),
+    '#description'   => t("If you select nothing, every node type can have an associated block. By selecting one or more items in this variable, you will restrict node types to only the selected ones."),
+  );
+
+  $form['#validate'][] = 'nodeblock_admin_form_validate';
+
   return system_settings_form($form);
+}
+
+/**
+ * Validate handler for global admin form.
+ */
+function nodeblock_admin_form_validate($form, &$form_state) {
+  $enabled_types = array();
+  foreach ($form_state['values'][NODEBLOCK_VAR_TYPES] as $type => $enabled) {
+    if ($type === $enabled) {
+      $enabled_types[$type] = $type;
+    }
+  }
+  $form_state['values'][NODEBLOCK_VAR_TYPES] = $enabled_types;
 }
 
 /**

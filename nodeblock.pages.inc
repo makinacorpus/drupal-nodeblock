@@ -66,6 +66,8 @@ function nodeblock_create_form($form, &$form_state, $node) {
       'source'       => array('info'),
       'label'        => t("Identifier"),
     ),
+    // 32 is the 'delta' column max length.
+    '#maxlength'     => 32,
     '#default_value' => $values->delta,
     '#disabled'      => $exists,
   );

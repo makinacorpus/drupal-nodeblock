@@ -46,3 +46,11 @@ function nodeblock_schema() {
 
   return $schema;
 }
+
+/**
+ * Implements hook_uninstall().
+ */
+function nodeblock_uninstall() {
+  variable_del('nodeblock_block_cache');
+  variable_del('nodeblock_enabled_types');
+}

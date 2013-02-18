@@ -28,6 +28,11 @@ const NODEBLOCK_CACHE_DEFAULT = DRUPAL_CACHE_PER_PAGE;
 const NODEBLOCK_CACHE_VAR     = 'nodeblock_block_cache';
 
 /**
+ * Node block enabled node types variable.
+ */
+const NODEBLOCK_VAR_TYPES     = 'nodeblock_enabled_types';
+
+/**
  * Implements hook_permission().
  */
 function nodeblock_permission() {
@@ -37,6 +42,19 @@ function nodeblock_permission() {
       'description' => t("With this permission, users can create blocks for their nodes. Per node permission will be determined following node access rights."),
     ),
   );
+}
+
+/**
+ * Node type is enabled for having block.
+ *
+ * @param string $type
+ *   Node type
+ *
+ * @return boolean
+ *   True or false.
+ */
+function nodeblock_node_type_is_enabled($type) {
+  return !($types = variable_get(NODEBLOCK_VAR_TYPES, NULL)) || empty($types) || (isset($types[$type]) && $types[$type]);
 }
 
 /**
