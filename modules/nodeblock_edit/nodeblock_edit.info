@@ -3,5 +3,5 @@ description = Node block module editor UI, allows users with a set of custom per
 core = 7.x
 package = Utility
 php = 5.3
-version = 7.x-1.0
+version = 7.x-2.0
 dependencies[] = nodeblock
