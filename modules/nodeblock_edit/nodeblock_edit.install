@@ -1,0 +1,50 @@
+<?php
+
+/**
+ * @file
+ * Node block edit schema.
+ */
+
+/**
+ * Implements hook_schema_alter().
+ */
+function nodeblock_edit_schema_alter(&$schema) {
+  $schema['block']['fields']['nodeblock_edit_custom'] = array(
+    'description' => 'Block is handled by node block edit module',
+    'type'        => 'int',
+    'not null'    => TRUE,
+    'default'     => 0,
+  );
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function nodeblock_edit_install() {
+  db_add_field('block', 'nodeblock_edit_custom', array(
+    'description' => 'Block is handled by node block edit module',
+    'type'        => 'int',
+    'not null'    => TRUE,
+    'default'     => 0,
+  ));
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function nodeblock_edit_uninstall() {
+  db_drop_field('block', 'nodeblock_edit_custom');
+  variable_del('nodeblock_edit_enabled_regions');
+}
+
+/**
+ * Adds the {block}.nodeblock_edit_custom field.
+ */
+function nodeblock_edit_update_7001() {
+  db_add_field('block', 'nodeblock_edit_custom', array(
+    'description' => 'Block is handled by node block edit module',
+    'type'        => 'int',
+    'not null'    => TRUE,
+    'default'     => 0,
+  ));
+}

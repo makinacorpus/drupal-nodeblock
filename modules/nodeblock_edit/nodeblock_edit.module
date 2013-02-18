@@ -1,0 +1,338 @@
+<?php
+
+/**
+ * @file
+ * Node block edit module.
+ *
+ * Cette feature existe parce qu'on toucherait les limites de contexte si on
+ * devait l'utiliser pour le "Bloc paramétrable N". Le problème de cette demande
+ * spécifique est que nous devons avoir un bloc par page (ou presque) et pouvoir
+ * le disposer un peu n'importe où selon la page.
+ *
+ * Si on devait utiliser Context pour ceci, on règlerait le problème du
+ * placement, mais on aurait alors autant de contextes que de pages sur le site,
+ * ce qui en soit devient un problème à part entière.
+ *
+ * Autre chose à penser, nous devons conserver un lien 0..1 entre une page et le
+ * node affiché en bloc paramétrable. Par page, nous ne parlons pas de node, ni
+ * d'entrée dans le router du menu, mais d'une seule et unique page composée de
+ * ses équivalents multilingues, ce qui tend à complexifier la tâche.
+ *
+ * Le problème semble simple, mais rien dans Drupal ni dans ses contribs ne
+ * permet de résoudre ce problème.
+ *
+ * Le plus problème de tout ceci est que les rédacteurs devront en plus pouvoir
+ * les modifier facilement, ainsi que les traduire, ainsi qu'en rajouter ou en
+ * supprimer.
+ *
+ * Nous allons utiliser un bloc de toute manière, que nous allons afficher sur
+ * toutes les pages grâce au contexte "sitewide". Ceci résoud un problème. Nous
+ * allons ensuite créer une table pour stoquer le lien "path..node" en 0..1 dans
+ * laquelle seules les path sans language ou anglais pourront être utilisés, qui
+ * seront liés à des nodeblock créés à la volée.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function nodeblock_edit_permission() {
+  return array(
+    'nodeblock edit manage block' => array(
+      'title'       => t("Use simple region UI"),
+      'description' => t("Users with this permission will be allowed to place, displace, move blocks into specific regions using the nice UI"),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function nodeblock_edit_menu() {
+  $items = array();
+
+  $items['admin/structure/region'] = array(
+    'title'            => "Regions",
+    'description'      => "List all known regions for the current default theme.",
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('nodeblock_edit_page_overview_form'),
+    'access arguments' => array('nodeblock edit manage block'),
+    'type'             => MENU_NORMAL_ITEM,
+    'file'             => 'nodeblock_edit.pages.inc',
+  );
+  $items['admin/structure/region/list'] = array(
+    'title'            => t("Overview"),
+    'type'             => MENU_DEFAULT_LOCAL_TASK,
+  );
+  $items['admin/structure/region/settings'] = array(
+    'title'            => "Settings",
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('nodeblock_edit_page_settings_form'),
+    'access arguments' => array('administer site configuration'),
+    'type'             => MENU_LOCAL_TASK,
+    'file'             => 'nodeblock_edit.pages.inc',
+  );
+  $items['admin/structure/region/%nodeblock_edit_region'] = array(
+    'title'            => "Region details",
+    'title callback'   => 'nodeblock_edit_region_title',
+    'title arguments'  => array(3),
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('nodeblock_edit_page_region_form'),
+    'access arguments' => array('nodeblock edit manage block'),
+    'type'             => MENU_CALLBACK | MENU_VISIBLE_IN_BREADCRUMB,
+    'file'             => 'nodeblock_edit.pages.inc',
+  );
+  $items['admin/structure/region/%nodeblock_edit_region/%nodeblock_edit_block'] = array(
+    'title'            => "Block",
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('nodeblock_edit_page_region_block_form', 3, 4),
+    'access arguments' => array('nodeblock edit manage block'),
+    'type'             => MENU_CALLBACK | MENU_VISIBLE_IN_BREADCRUMB,
+    'file'             => 'nodeblock_edit.pages.inc',
+  );
+  $items['admin/structure/region/%nodeblock_edit_region/%nodeblock_edit_block/edit'] = array(
+    'title'            => "Move or edit this block",
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('nodeblock_edit_page_region_block_form', 3, 4),
+    'access arguments' => array('nodeblock edit manage block'),
+    'type'             => MENU_LOCAL_ACTION | MENU_VISIBLE_IN_BREADCRUMB,
+    'context'          => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+    'file'             => 'nodeblock_edit.pages.inc',
+  );
+  $items['admin/structure/region/%nodeblock_edit_region/%nodeblock_edit_block/delete'] = array(
+    'title'            => "Remove this block",
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('nodeblock_edit_page_region_block_delete_form', 3, 4),
+    'access arguments' => array('nodeblock edit manage block'),
+    'type'             => MENU_LOCAL_ACTION | MENU_VISIBLE_IN_BREADCRUMB,
+    'context'          => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+    'file'             => 'nodeblock_edit.pages.inc',
+  );
+
+  // Specific autocomplete that allows to search over blocks.
+  $items['admin/structure/region/%nodeblock_edit_region/autocomplete'] = array(
+    'page callback'    => 'nodeblock_edit_autocomplete',
+    'page arguments'   => array(3),
+    'access arguments' => array('nodeblock edit manage block'),
+    'type'             => MENU_CALLBACK,
+    'file'             => 'nodeblock_edit.pages.inc',
+  );
+
+  // Contextual operations for regions.
+  $items['admin/structure/region/%nodeblock_edit_region/add-page'] = array(
+    'title'            => "Add block on this page",
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('nodeblock_edit_page_region_add_page_form', 3),
+    'access arguments' => array('nodeblock edit manage block'),
+    'type'             => MENU_LOCAL_ACTION,
+    'context'          => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+    'file'             => 'nodeblock_edit.pages.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function nodeblock_edit_theme() {
+  return array(
+    'nodeblock_edit_page_region_block_form' => array(
+      'render element' => 'form',
+      'file' => 'nodeblock_edit.pages.inc',
+    ),
+  );
+}
+
+/**
+ * Implements hook_nodeblock_edit_alter().
+ *
+ * FIXME: Ugly hardcoded implementation.
+ */
+function nodeblock_edit_nodeblock_edit_alter(&$blocks) {
+  foreach ($blocks as $id => $block) {
+    switch ($block->module) {
+
+      case 'lab_orange_core_business':
+      case 'lab_orange_forum':
+      case 'views':
+      case 'facetapi':
+        unset($blocks[$id]);
+        break;
+    }
+  }
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function nodeblock_edit_block_info() {
+  return array(
+    'add' => array(
+      'info' => t("Add block links"),
+    ),
+  );
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function nodeblock_edit_block_view($delta = '') {
+  if ('add' === $delta) {
+
+    global $theme_key;
+    $content = array();
+
+    foreach (system_region_list($theme_key) as $region => $title) {
+      $region_id = $region . '.' . $theme_key;
+
+      if (!nodeblock_edit_region_is_enabled($region_id)) {
+        continue;
+      }
+
+      $links = nodeblock_edit_contextual_get_links(array('nodeblock_edit' => array('admin/structure/region', array($region_id))));
+      $content[$region_id]['#markup'] = theme('links', array('links' => $links));
+    }
+
+    if (!empty($content)) {
+      return array(
+        // 'subject' => t("Add block"),
+        'content' => $content,
+      );
+    }
+  }
+}
+
+/**
+ * Tell if region is enabled.
+ */
+function nodeblock_edit_region_is_enabled($region_id) {
+
+  if (FALSE === strpos($region_id, '.')) {
+    return FALSE;
+  }
+
+  $list = variable_get('nodeblock_edit_enabled_regions', array());
+
+  return isset($list[$region_id]) && (bool)$list[$region_id];
+}
+
+/**
+ * Menu helper.
+ */
+function nodeblock_edit_block_load($block_id) {
+
+  if (FALSE === strpos($block_id, '.')) {
+    return FALSE;
+  }
+
+  return explode('.', $block_id, 2);
+}
+
+/**
+ * Menu helper.
+ */
+function nodeblock_edit_region_title($region_info) {
+
+  list($region, $theme) = $region_info;
+
+  $themes  = list_themes();
+  $regions = system_region_list($theme);
+
+  return $themes[$theme]->info['name'] . " / " . $regions[$region];
+}
+
+/**
+ * Menu helper.
+ */
+function nodeblock_edit_region_load($region_id) {
+  if (nodeblock_edit_region_is_enabled($region_id)) {
+    return explode('.', $region_id, 2);
+  } else {
+    return FALSE;
+  }
+}
+
+/**
+ * Implements hook_block_view_alter().
+ */
+function nodeblock_edit_block_view_alter(&$data, $block) {
+
+  if (!$block->nodeblock_edit_custom) {
+    return;
+  }
+
+  $region_id = $block->region . '.' . $GLOBALS['theme_key'];
+
+  if (!nodeblock_edit_region_is_enabled($region_id) || !isset($data['content']) || empty($data['content'])) {
+    return;
+  }
+
+  $block_id  = $block->module . '.' . $block->delta;
+
+  if (!is_array($data['content'])) {
+    $data['content'] = array(
+      '#markup' => $data['content'],
+    );
+  }
+
+  $data['content']['#contextual_links']['nodeblock_edit_block']  = array('admin/structure/region', array($region_id, $block_id));
+}
+
+/**
+ * Get all contextual links for the selected array.
+ *
+ * @param array $contextual_links
+ *   Structure that the contextual module would normally access as the
+ *   #contextual_links array in its preprocess.
+ *
+ * @return array
+ *   Structure suitable for theme_links() function containing the #links
+ *   property content.
+ */
+function nodeblock_edit_contextual_get_links($contextual_links) {
+
+  $items = array();
+
+  foreach ($contextual_links as $module => $args) {
+    $items += menu_contextual_links($module, $args[0], $args[1]);
+  }
+
+  $links = array();
+  foreach ($items as $class => $item) {
+    $class = drupal_html_class($class);
+    $links[$class] = array(
+      'title' => $item['title'],
+      'href'  => $item['href'],
+    );
+    $item['localized_options'] += array('query' => array());
+    $item['localized_options']['query'] += drupal_get_destination();
+    $links[$class] += $item['localized_options'];
+  }
+
+  return $links;
+}
+
+/**
+ * Implements hook_preprocess_region().
+ */
+function nodeblock_edit_preprocess_region(&$variables) {
+  global $theme_key;
+
+  $region_id = $variables['region'] . '.' . $theme_key;
+
+  if (!nodeblock_edit_region_is_enabled($region_id)) {
+    return;
+  }
+
+  /*
+   * Keeping that for posterity, but contextual links are dawn stupid and it
+   * is impossible for us to add contextual links onto regions if we use
+   * those on blocks.
+   *
+  $variables['elements']['#contextual_links']['nodeblock_edit'] = array('admin/structure/region', array($region_id));
+  contextual_preprocess($variables, 'region');
+   */
+
+  $links = nodeblock_edit_contextual_get_links(array('nodeblock_edit' => array('admin/structure/region', array($region_id))));
+  $variables['content'] .= theme('links', array('links' => $links));
+}

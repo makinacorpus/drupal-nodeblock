@@ -1,0 +1,7 @@
+name = Node block edit
+description = Node block module editor UI, allows users with a set of custom permissions to edit a limited set of blocks.
+core = 7.x
+package = Utility
+php = 5.3
+version = 7.x-1.0
+dependencies[] = nodeblock
