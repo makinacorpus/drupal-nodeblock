@@ -26,11 +26,18 @@ function nodeblock_edit_element_validate_filter_empty($element, &$form_state, $f
 function _nodeblock_edit_menu_item_get_trail($item) {
 
   $trail = array();
-  $trail[] = $item;
 
-  while ($item = _menu_link_find_parent($item)) {
+  do {
+    // Sometime the 'module' entry is missing, and that makes the menu.inc
+    // functions to be angry and throw sad PHP noticies. Drupal is fucked up
+    // and rotten to the roots.
+    if (!isset($item['module'])) {
+      $item['module'] = 'none';
+    }
+
     array_unshift($trail, $item);
-  }
+
+  } while ($item = _menu_link_find_parent($item));
 
   array_unshift($trail, array(
     'title'             => t('Home'),

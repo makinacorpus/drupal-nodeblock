@@ -30,6 +30,9 @@
  * allons ensuite créer une table pour stoquer le lien "path..node" en 0..1 dans
  * laquelle seules les path sans language ou anglais pourront être utilisés, qui
  * seront liés à des nodeblock créés à la volée.
+ *
+ * @todo
+ *   - Move all admin pages under the same as the nodeblock module.
  */
 
 /**
