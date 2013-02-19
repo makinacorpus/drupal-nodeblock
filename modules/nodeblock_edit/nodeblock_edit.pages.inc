@@ -496,6 +496,36 @@ function nodeblock_edit_autocomplete($region_info, $string) {
   // Proceed with alternative providers.
   // First (and only) is nodeblock.
   if (module_exists('nodeblock')) {
+
+    // WARNING: UGLY
+    $select = db_select('node', 'n');
+    $select
+      ->leftJoin('nodeblock', 'b', 'b.nid = n.nid');
+    $select
+      ->fields('n', array('nid', 'title', 'language', 'tnid'));
+    if ($types = variable_get(NODEBLOCK_VAR_TYPES, array())) {
+      $select
+        ->condition('n.type', array_values($types));
+    }
+    $select
+      ->where('LOWER(n.title) LIKE :string', array(
+        ':string' => '%' . db_like($string) . '%',
+      ));
+    if (drupal_multilingual() && module_exists('i18n')) {
+      $select
+        ->orderBy("(
+              CASE n.language
+                WHEN '" . db_escape_field($language) . "' THEN 0
+                ELSE 1
+              END
+            )") // FIXME: HACK.
+        ->groupBy('n.tnid');
+    }
+    $result = $select
+      ->execute()
+      ->fetchAll();
+
+    /*
     // FIXME: Totally unacceptable query if there was millions of nodes.
     $query = "
       SELECT * FROM (
@@ -503,6 +533,7 @@ function nodeblock_edit_autocomplete($region_info, $string) {
           FROM {node} n
           LEFT JOIN {nodeblock} b ON b.nid = n.nid
           WHERE LOWER(n.title) LIKE :string
+            AND n.type IN (:types)
           ORDER BY (
             CASE n.language
               WHEN :lang THEN 0
@@ -516,7 +547,9 @@ function nodeblock_edit_autocomplete($region_info, $string) {
     $result = db_query($query, array(
       ':string' => '%' . db_like($string) . '%',
       ':lang'   => $language,
+      ':types'  => implode(', ', $types),
     ))->fetchAll();
+     */
 
     foreach ($result as $data) {
       if ($data->delta) {
