@@ -308,21 +308,23 @@ function nodeblock_edit_contextual_get_links($contextual_links) {
 function nodeblock_edit_preprocess_region(&$variables) {
   global $theme_key;
 
-  $region_id = $variables['region'] . '.' . $theme_key;
+  if (variable_get('nodeblock_region_link')) {
+    $region_id = $variables['region'] . '.' . $theme_key;
 
-  if (!nodeblock_edit_region_is_enabled($region_id)) {
-    return;
+    if (!nodeblock_edit_region_is_enabled($region_id)) {
+      return;
+    }
+
+    /*
+     * Keeping that for posterity, but contextual links are dawn stupid and it
+     * is impossible for us to add contextual links onto regions if we use
+     * those on blocks.
+     *
+    $variables['elements']['#contextual_links']['nodeblock_edit'] = array('admin/structure/region', array($region_id));
+    contextual_preprocess($variables, 'region');
+     */
+
+    $links = nodeblock_edit_contextual_get_links(array('nodeblock_edit' => array('admin/structure/region', array($region_id))));
+    $variables['content'] .= theme('links', array('links' => $links));
   }
-
-  /*
-   * Keeping that for posterity, but contextual links are dawn stupid and it
-   * is impossible for us to add contextual links onto regions if we use
-   * those on blocks.
-   *
-  $variables['elements']['#contextual_links']['nodeblock_edit'] = array('admin/structure/region', array($region_id));
-  contextual_preprocess($variables, 'region');
-   */
-
-  $links = nodeblock_edit_contextual_get_links(array('nodeblock_edit' => array('admin/structure/region', array($region_id))));
-  $variables['content'] .= theme('links', array('links' => $links));
 }

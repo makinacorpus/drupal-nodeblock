@@ -15,22 +15,32 @@
 /**
  * View mode name.
  */
-const NODEBLOCK_VIEW_MODE     = 'nodeblock';
+const NODEBLOCK_VIEW_MODE         = 'nodeblock';
 
 /**
  * Default cache mode.
  */
-const NODEBLOCK_CACHE_DEFAULT = DRUPAL_CACHE_PER_PAGE;
+const NODEBLOCK_CACHE_DEFAULT     = DRUPAL_CACHE_PER_PAGE;
 
 /**
  * Cache mode variable name.
  */
-const NODEBLOCK_CACHE_VAR     = 'nodeblock_block_cache';
+const NODEBLOCK_CACHE_VAR         = 'nodeblock_block_cache';
 
 /**
  * Node block enabled node types variable.
  */
-const NODEBLOCK_VAR_TYPES     = 'nodeblock_enabled_types';
+const NODEBLOCK_VAR_TYPES         = 'nodeblock_enabled_types';
+
+/**
+ * Display node action links variable.
+ */
+const NODEBLOCK_VAR_DISPLAY_LINKS = 'nodeblock_display_links';
+
+/**
+ * Display node action links default value.
+ */
+const NODEBLOCK_DEF_DISPLAY_LINKS = true;
 
 /**
  * Implements hook_permission().
@@ -75,21 +85,21 @@ function nodeblock_node_has_block($node) {
  * Menu access helper.
  */
 function nodeblock_create_access($node) {
-  return user_access('create node block') && node_access('update', $node) && !nodeblock_node_has_block($node);
+  return variable_get(NODEBLOCK_VAR_DISPLAY_LINKS, NODEBLOCK_DEF_DISPLAY_LINKS) && user_access('create node block') && node_access('update', $node) && !nodeblock_node_has_block($node);
 }
 
 /**
  * Menu access helper.
  */
 function nodeblock_edit_access($node) {
-  return user_access('create node block') && node_access('update', $node) && nodeblock_node_has_block($node);
+  return variable_get(NODEBLOCK_VAR_DISPLAY_LINKS, NODEBLOCK_DEF_DISPLAY_LINKS) && user_access('create node block') && node_access('update', $node) && nodeblock_node_has_block($node);
 }
 
 /**
  * Menu access helper.
  */
 function nodeblock_remove_access($node) {
-  return user_access('create node block') && node_access('update', $node) && nodeblock_node_has_block($node);
+  return variable_get(NODEBLOCK_VAR_DISPLAY_LINKS, NODEBLOCK_DEF_DISPLAY_LINKS) && user_access('create node block') && node_access('update', $node) && nodeblock_node_has_block($node);
 }
 
 /**

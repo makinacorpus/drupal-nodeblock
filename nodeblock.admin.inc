@@ -36,6 +36,13 @@ function nodeblock_admin_form($form, &$form_state) {
     '#description'   => t("If you select nothing, every node type can have an associated block. By selecting one or more items in this variable, you will restrict node types to only the selected ones."),
   );
 
+  $form[NODEBLOCK_VAR_DISPLAY_LINKS] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t("Display links on node page"),
+    '#default_value' => variable_get(NODEBLOCK_VAR_DISPLAY_LINKS, NODEBLOCK_DEF_DISPLAY_LINKS),
+    '#description'   => t("If unchecked, the node actions links on node page won't be displayed anymore."),
+  );
+
   $form['#validate'][] = 'nodeblock_admin_form_validate';
 
   return system_settings_form($form);
