@@ -502,7 +502,8 @@ function nodeblock_edit_autocomplete($region_info, $string) {
     $select
       ->leftJoin('nodeblock', 'b', 'b.nid = n.nid');
     $select
-      ->fields('n', array('nid', 'title', 'language', 'tnid'));
+      ->fields('n', array('nid', 'title', 'language', 'tnid'))
+      ->fields('b', array('delta'));
     if ($types = variable_get(NODEBLOCK_VAR_TYPES, array())) {
       $select
         ->condition('n.type', array_values($types));
@@ -552,7 +553,7 @@ function nodeblock_edit_autocomplete($region_info, $string) {
      */
 
     foreach ($result as $data) {
-      if ($data->delta) {
+      if (isset($data->delta)) {
         $key = 'nodeblock.' . $data->delta;
       } else {
         $key = 'nodeblock.' . $data->nid;
