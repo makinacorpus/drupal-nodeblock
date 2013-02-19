@@ -4,36 +4,29 @@
  * @file
  * Node block edit module.
  *
- * Cette feature existe parce qu'on toucherait les limites de contexte si on
- * devait l'utiliser pour le "Bloc paramétrable N". Le problème de cette demande
- * spécifique est que nous devons avoir un bloc par page (ou presque) et pouvoir
- * le disposer un peu n'importe où selon la page.
- *
- * Si on devait utiliser Context pour ceci, on règlerait le problème du
- * placement, mais on aurait alors autant de contextes que de pages sur le site,
- * ce qui en soit devient un problème à part entière.
- *
- * Autre chose à penser, nous devons conserver un lien 0..1 entre une page et le
- * node affiché en bloc paramétrable. Par page, nous ne parlons pas de node, ni
- * d'entrée dans le router du menu, mais d'une seule et unique page composée de
- * ses équivalents multilingues, ce qui tend à complexifier la tâche.
- *
- * Le problème semble simple, mais rien dans Drupal ni dans ses contribs ne
- * permet de résoudre ce problème.
- *
- * Le plus problème de tout ceci est que les rédacteurs devront en plus pouvoir
- * les modifier facilement, ainsi que les traduire, ainsi qu'en rajouter ou en
- * supprimer.
- *
- * Nous allons utiliser un bloc de toute manière, que nous allons afficher sur
- * toutes les pages grâce au contexte "sitewide". Ceci résoud un problème. Nous
- * allons ensuite créer une table pour stoquer le lien "path..node" en 0..1 dans
- * laquelle seules les path sans language ou anglais pourront être utilisés, qui
- * seront liés à des nodeblock créés à la volée.
- *
  * @todo
  *   - Move all admin pages under the same as the nodeblock module.
  */
+
+/**
+ * Display link in regions variable.
+ */
+const NODEBLOCK_EDIT_VAR_REGION_LINK    = 'nodeblock_region_link';
+
+/**
+ * Display link in regions default value.
+ */
+const NODEBLOCK_DEF_VAR_REGION_LINK     = null;
+
+/**
+ * Enabled regions variable.
+ */
+const NODEBLOCK_EDIT_VAR_REGION_ENABLED = 'nodeblock_edit_enabled_regions';
+
+/**
+ * Enabled regions default value.
+ */
+const NODEBLOCK_DEF_VAR_REGION_ENABLED  = null;
 
 /**
  * Implements hook_permission().
@@ -201,7 +194,7 @@ function nodeblock_edit_region_is_enabled($region_id) {
     return FALSE;
   }
 
-  $list = variable_get('nodeblock_edit_enabled_regions', array());
+  $list = variable_get(NODEBLOCK_EDIT_VAR_REGION_ENABLED, array());
 
   return isset($list[$region_id]) && (bool)$list[$region_id];
 }
@@ -308,7 +301,7 @@ function nodeblock_edit_contextual_get_links($contextual_links) {
 function nodeblock_edit_preprocess_region(&$variables) {
   global $theme_key;
 
-  if (variable_get('nodeblock_region_link')) {
+  if (variable_get(NODEBLOCK_EDIT_VAR_REGION_LINK, NODEBLOCK_EDIT_DEF_REGION_LINK)) {
     $region_id = $variables['region'] . '.' . $theme_key;
 
     if (!nodeblock_edit_region_is_enabled($region_id)) {

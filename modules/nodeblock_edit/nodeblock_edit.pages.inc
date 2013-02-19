@@ -95,7 +95,7 @@ function nodeblock_edit_page_settings_form($form, &$form_state) {
   $form['nodeblock_region_link'] = array(
     '#type' => 'checkbox',
     '#title' => t("Display add link in regions"),
-    '#default_value' => variable_get('nodeblock_region_link'),
+    '#default_value' => variable_get(NODEBLOCK_EDIT_VAR_REGION_LINK, NODEBLOCK_DEF_VAR_REGION_LINK),
     '#description' => t("If checked, a link will be displayed into the enabled regions by hacking core templating system. This means that if the region does not carry any block, the link won't be displayed. <em>We recommend that you place the add link block instead.</em>"),
   );
 
@@ -103,7 +103,7 @@ function nodeblock_edit_page_settings_form($form, &$form_state) {
     '#type'             => 'checkboxes',
     '#title'            => t("Enabled regions"),
     '#options'          => $options,
-    '#default_value'    => variable_get('nodeblock_edit_enabled_regions', array()),
+    '#default_value'    => variable_get(NODEBLOCK_EDIT_VAR_REGION_ENABLED, array()),
     '#element_validate' => array('nodeblock_edit_element_validate_filter_empty'),
   );
 

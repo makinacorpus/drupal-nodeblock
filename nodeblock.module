@@ -15,7 +15,7 @@
 /**
  * View mode name.
  */
-const NODEBLOCK_VIEW_MODE         = 'nodeblock';
+const NODEBLOCK_VIEW_MODE         = 'nodeblock_region_link';
 
 /**
  * Default cache mode.
