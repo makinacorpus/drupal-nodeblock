@@ -15,8 +15,8 @@ function nodeblock_schema() {
     'description' => 'Stores node references for making blocks',
     'fields' => array(
       'nid' => array(
-        'type'        => 'int',
         'description' => "Node identifier",
+        'type'        => 'int',
         'not null'    => TRUE,
       ),
       'delta' => array(

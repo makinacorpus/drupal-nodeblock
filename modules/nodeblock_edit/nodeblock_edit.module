@@ -29,6 +29,38 @@ const NODEBLOCK_EDIT_VAR_REGION_ENABLED = 'nodeblock_edit_enabled_regions';
 const NODEBLOCK_DEF_VAR_REGION_ENABLED  = null;
 
 /**
+ * Compute int32 hash from string
+ *
+ * PHP crc32() function will return a int32 signed result; Internally in PHP
+ * all integers are always signed: this means that if we unsign the int then
+ * convert it as an int back, we will reach the PHP_INT_MAX 32bit limit on
+ * 32bits compiled PHP versions.
+ *
+ * The only way to ensure we have a real int32 on all plateforms is to convert
+ * the value as string before sending to the DBMS, which will deal with large
+ * values seamlessly.
+ *
+ * Hopefully, MySQL will deal with 32bits INT UNSIGNED very efficiently, pretty
+ * much like any other SQL storage engine, our indexes will be as fast as they
+ * can be.
+ *
+ * We are lucky here because DBTNG does not cast the int values as real int
+ * before sending it to the database; If it did so, half of our 32bits signed
+ * values would become PHP_INT_MAX causing extreme duplication errors.
+ *
+ * @see http://php.net/manual/en/function.crc32.php
+ *
+ * @param string $string
+ *   String.
+ *
+ * @return string
+ *   32bits unsigned integer (as string).
+ */
+function nodeblock_edit_hash($string) {
+  return sprintf("%u", crc32($string));
+}
+
+/**
  * Implements hook_permission().
  */
 function nodeblock_edit_permission() {
@@ -127,21 +159,67 @@ function nodeblock_edit_theme() {
 }
 
 /**
- * Implements hook_nodeblock_edit_alter().
- *
- * FIXME: Ugly hardcoded implementation.
+ * Implements hook_block_list_alter().
  */
-function nodeblock_edit_nodeblock_edit_alter(&$blocks) {
-  foreach ($blocks as $id => $block) {
-    switch ($block->module) {
+function nodeblock_edit_block_list_alter(&$block_list) {
+  global $theme_key;
 
-      case 'lab_orange_core_business':
-      case 'lab_orange_forum':
-      case 'views':
-      case 'facetapi':
-        unset($blocks[$id]);
-        break;
+  $regions = array();
+
+  foreach (nodeblock_edit_region_enabled_get() as $region_id) {
+    list($region, $theme) = explode('.', $region_id, 2);
+    if ($theme === $theme_key) {
+      $regions[] = $region;
     }
+  }
+
+  if (empty($regions)) {
+    return;
+  }
+
+  $path = current_path();
+  $foo  = 0;
+
+  // WIN! SQL request using a CONST index only using MySQL.
+  // FOUK YU DRUPAL!
+  $custom = db_select('nodeblock_edit_path', 'np')
+    ->fields('np')
+    ->condition('np.region', $regions)
+    ->condition('np.path_hash', nodeblock_edit_hash($path))
+    ->orderBy('np.weight')
+    ->execute()
+    ->fetchAll();
+
+  foreach ($custom as $info) {
+
+    // We are using a non perfect hash algorithm, we must ensure we did
+    // not created any duplicates.
+    if ($info->path !== $path) {
+      return;
+    }
+
+    $block             = new stdClass();
+    $block->bid        = $info->path_hash . '.' . (++$foo);
+    // Next two line are together a minor hack that allows the site to embed
+    // more than once the same block in the same region. We basically implement
+    // an ugly proxy pattern that will allow us to render the block ourself and
+    // let the block being rendered more than once.
+    // FIXME: Restore this later.
+    //$block->module     = 'nodeblock_edit';
+    //$block->delta      = $info->module . ':' . $info->delta . ':' . (++$foo);
+    $block->module     = $info->module;
+    $block->delta      = $info->delta;
+    $block->status     = 1;
+    $block->weight     = $info->weight;
+    $block->region     = $info->region;
+    $block->custom     = 0;
+    $block->visibility = 1;
+    $block->pages      = $path;
+    $block->title      = null;
+    $block->cache      = DRUPAL_NO_CACHE;
+    $block->_nodeblock = true;
+
+    $block_list[$block->bid] = $block;
   }
 }
 
@@ -189,25 +267,27 @@ function nodeblock_edit_block_view($delta = '') {
  * Tell if region is enabled.
  */
 function nodeblock_edit_region_is_enabled($region_id) {
-
-  if (FALSE === strpos($region_id, '.')) {
-    return FALSE;
+  if (false === strpos($region_id, '.')) {
+    return false;
   }
-
-  $list = variable_get(NODEBLOCK_EDIT_VAR_REGION_ENABLED, array());
-
+  $list = nodeblock_edit_region_enabled_get();
   return isset($list[$region_id]) && (bool)$list[$region_id];
+}
+
+/**
+ * Get list of all enabled regions.
+ */
+function nodeblock_edit_region_enabled_get() {
+  return variable_get(NODEBLOCK_EDIT_VAR_REGION_ENABLED, array());
 }
 
 /**
  * Menu helper.
  */
 function nodeblock_edit_block_load($block_id) {
-
   if (FALSE === strpos($block_id, '.')) {
     return FALSE;
   }
-
   return explode('.', $block_id, 2);
 }
 
@@ -215,12 +295,9 @@ function nodeblock_edit_block_load($block_id) {
  * Menu helper.
  */
 function nodeblock_edit_region_title($region_info) {
-
   list($region, $theme) = $region_info;
-
   $themes  = list_themes();
   $regions = system_region_list($theme);
-
   return $themes[$theme]->info['name'] . " / " . $regions[$region];
 }
 
@@ -239,13 +316,10 @@ function nodeblock_edit_region_load($region_id) {
  * Implements hook_block_view_alter().
  */
 function nodeblock_edit_block_view_alter(&$data, $block) {
-
-  if (!$block->nodeblock_edit_custom) {
+  if (!$block->_nodeblock) {
     return;
   }
-
   $region_id = $block->region . '.' . $GLOBALS['theme_key'];
-
   if (!nodeblock_edit_region_is_enabled($region_id) || !isset($data['content']) || empty($data['content'])) {
     return;
   }

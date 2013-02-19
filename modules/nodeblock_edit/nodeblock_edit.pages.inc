@@ -110,17 +110,11 @@ function nodeblock_edit_page_settings_form($form, &$form_state) {
   return system_settings_form($form);
 }
 
+
 /**
  * Single region form.
  */
 function nodeblock_edit_page_region_form($form, &$form_state, $region_info) {
-  return $form;
-}
-
-/**
- * Add block into region form.
- */
-function nodeblock_edit_page_region_add_form($form, &$form_state, $region_info) {
   return $form;
 }
 
@@ -186,8 +180,12 @@ function nodeblock_edit_page_region_add_page_form($form, &$form_state, $region_i
   // We explicitely disallow automatic introspection for admin in order
   // to avoid the field going disabled under certain possible circumstances.
   if (isset($_GET['destination']) && 0 !== strpos($_GET['destination'], 'admin')) {
-    $aliases = nodeblock_edit_path_get_all_aliases($_GET['destination']);
-    if (!in_array($_GET['destination'], $aliases)) {
+
+    $path = drupal_get_normal_path($_GET['destination']);
+
+    // Find all aliases, especially i18n aliases.
+    $aliases = nodeblock_edit_path_get_all_aliases($path);
+    if (!in_array($path, $aliases)) {
       array_unshift($aliases, $_GET['destination']);
     }
 
@@ -232,73 +230,35 @@ function nodeblock_edit_page_region_add_page_form_submit_add($form, &$form_state
 
   if (!$delta = nodeblock_edit_ensure_block($module, $id)) {
     drupal_set_message(t("Could not create the block"), 'error');
-
     return;
   }
 
-  $fields = array(
-    // We cannot set bid since it's an auto increment value.
-    'module'                => $module,
-    'delta'                 => $delta,
-    'theme'                 => $theme,
-    'status'                => 1,
-    // FIXME: Default sounds good for testing, but later find a way tied to
-    // the UI for leaving the user choosing where to put the weight himself.
-    'weight'                => 0,
-    'region'                => $region,
-    'custom'                => 0,
-    // Display on selected pages only.
-    'visibility'            => 1,
-    'pages'                 => $pages,
-    // Leave the original module handling the title itself.
-    'title'                 => '',
-    // FIXME: Find a way to get back the original (and altered if altered)
-    // block cache setting for this block.
-    'cache'                 => DRUPAL_NO_CACHE,
-    'nodeblock_edit_custom' => 1,
-  );
+  foreach (array_filter(explode("\n", $pages)) as $path) {
 
-  $existing = db_select('block', 'b')
-    ->fields('b')
-    ->condition('b.theme',  $theme)
-    ->condition('b.module', $module)
-    ->condition('b.delta',  $delta)
-    ->condition('b.region', $region)
-    ->execute()
-    ->fetchAssoc();
+    $fields = array(
+      'module'    => $module,
+      'delta'     => $delta,
+      'weight'    => 0,
+      'region'    => $region,
+      'path'      => $path,
+      'path_hash' => nodeblock_edit_hash($path),
+    );
 
-  if ($existing) {
-    if ($existing['status'] && $existing['pages']) {
-      $pages           = array_unique(explode("\n", $fields['pages'] . "\n" . $existing['pages']));
-      $pages           = array_filter(array_values($pages));
-      $fields['pages'] = implode("\n", $pages);
-    }
-    $fields['weight'] = $existing['weight'];
-    $fields['bid']    = $existing['bid'];
-  }
-
-  // Add or ensure the block to be into the {blocks} table, then enable it
-  // and clear associated cache.
-  if ($existing) {
-    db_merge('block')
+    // Add or ensure the block to be into the {blocks} table, then enable it
+    // and clear associated cache.
+    db_merge('nodeblock_edit_path')
       ->key(array(
-        'bid' => $existing['bid'],
+        'module' => $module,
+        'delta'  => $delta,
+        'region' => $region,
+        'path'   => $path,
       ))
-      ->fields($fields)
-      ->execute();
-  } else {
-    db_insert('block')
       ->fields($fields)
       ->execute();
   }
 
   cache_clear_all();
-
-  if ($existing) {
-    drupal_set_message(t("The already existing block has been updated to be displayed in this page."));
-  } else {
-    drupal_set_message(t("The new block has been added on this page."));
-  }
+  drupal_set_message(t("The new block has been added on this page."));
 }
 
 /**
@@ -306,65 +266,56 @@ function nodeblock_edit_page_region_add_page_form_submit_add($form, &$form_state
  */
 function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info, $block_info) {
 
+  if (!isset($_GET['destination'])) {
+    return MENU_NOT_FOUND;
+  }
+
   _nodeblock_edit_form_set_breadcrumb("Move blocks on page %page", array(), "Move blocks");
+
+  $path = drupal_get_normal_path($_GET['destination']);
 
   list($module, $id)    = $block_info;
   list($region, $theme) = $region_info;
 
   $form['#tree'] = TRUE;
 
-  // Display a nice table with all other blocks, and allow to change the
-  // weight of the selected one (and others as we speak).
-  $block_info = db_select('block', 'b')
-    ->fields('b')
-    ->condition('b.theme',  $theme)
-    ->condition('b.region', $region)
-    ->condition('b.status', 1)
-    ->orderBy('b.weight')
-    ->orderBy('b.module')
-    ->addTag('block_load')
-    ->addTag('translatable')
+  $custom = db_select('nodeblock_edit_path', 'np')
+    ->fields('np')
+    ->condition('np.path_hash', nodeblock_edit_hash($path))
+    ->orderBy('np.weight')
     ->execute()
-    ->fetchAllAssoc('bid');
+    ->fetchAll();
 
-  drupal_alter('nodeblock_edit', $block_info);
-  drupal_alter('block_list', $block_info);
-
-  foreach ($block_info as $block) {
-    $function = $block->module . '_block_info';
+  foreach ($custom as $info) {
+    $function = $info->module . '_block_info';
     if (function_exists($function)) {
-      $info = $function();
-      if (isset($info[$block->delta])) {
-        $block->info = $info[$block->delta]['info'];
+      $module_info = $function();
+      if (isset($module_info[$info->delta])) {
+        $info->info = $module_info[$info->delta]['info'];
       }
     }
 
-    if (!isset($block->info)) {
+    if (!isset($info->info)) {
       // Ugly fallback, sorry.
-      $block->info = '<em>' . $block->module . '-' . $block->delta . '</em>';
+      $block->info = '<em>' . $info->module . '-' . $info->delta . '</em>';
     }
   }
 
   $modules = module_list();
-
-  foreach ($block_info as $block) {
-    $id = $block_id = $block->module . '.' . $block->delta;
+  foreach ($custom as $info) {
+    $id = $block_id = $info->module . '.' . $info->delta;
 
     $form['blocks'][$id]['weight'] = array(
       '#type'          => 'weight',
-      '#title'         => t('Weight for @title', array('@title' => $block->info)),
+      '#title'         => t('Weight for @title', array('@title' => $info->info)),
       '#title_display' => 'invisible',
-      '#default_value' => $block->weight,
-      '#disabled'      => !$block->nodeblock_edit_custom,
+      '#default_value' => $info->weight,
     );
     $form['blocks'][$id]['info'] = array(
-      '#markup'        => $block->info,
+      '#markup'        => $info->info,
     );
     $form['blocks'][$id]['module'] = array(
-      '#markup'        => $modules[$block->module],
-    );
-    $form['blocks'][$id]['custom'] = array(
-      '#markup'        => $block->nodeblock_edit_custom ? t("Yes") : '',
+      '#markup'        => $modules[$info->module],
     );
   }
 
@@ -375,6 +326,10 @@ function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info
   $form['region_info'] = array(
     '#type'  => 'value',
     '#value' => $region_info,
+  );
+  $form['path'] = array(
+    '#type'  => 'value',
+    '#value' => $path,
   );
 
   $form['actions'] = array(
@@ -396,19 +351,21 @@ function nodeblock_edit_page_region_block_form_submit_edit($form, &$form_state) 
 
   list($region, $theme) = $form_state['values']['region_info'];
 
+  $path = $form_state['values']['path'];
+
   foreach ($form_state['values']['blocks'] as $id => $data) {
     if (isset($data['weight'])) {
 
       list($module, $delta) = explode('.', $id, 2);
 
-      db_update('block')
+      db_update('nodeblock_edit_path')
         ->fields(array(
           'weight' => (int)$data['weight'],
         ))
-        ->condition('region', $region)
-        ->condition('theme',  $theme)
+        ->condition('path',  $path)
         ->condition('module', $module)
         ->condition('delta',  $delta)
+        ->condition('region', $region)
         ->execute();
     }
   }
@@ -433,7 +390,6 @@ function theme_nodeblock_edit_page_region_block_form(&$variables) {
         drupal_render($form['blocks'][$id]['info']),
         drupal_render($form['blocks'][$id]['weight']),
         drupal_render($form['blocks'][$id]['module']),
-        drupal_render($form['blocks'][$id]['custom']),
       ),
       'class' => array('draggable'),
     );
@@ -446,7 +402,6 @@ function theme_nodeblock_edit_page_region_block_form(&$variables) {
       t("Info"),
       t("Weight"),
       t("Module"),
-      t("Is custom"),
     ),
     'rows'       => $rows,
     'attributes' => array('id' => 'block-edit-order'))
@@ -620,14 +575,6 @@ function nodeblock_edit_page_region_block_delete_form($form, &$form_state, $regi
   list($region, $theme) = $region_info;
   list($module, $delta) = $block_info;
 
-  $existing = db_select('block', 'b')
-    ->fields('b')
-    ->condition('b.theme',  $theme)
-    ->condition('b.module', $module)
-    ->condition('b.delta',  $delta)
-    ->execute()
-    ->fetchAssoc();
-
   $form['region_info'] = array(
     '#type'  => 'value',
     '#value' => $region_info,
@@ -637,44 +584,51 @@ function nodeblock_edit_page_region_block_delete_form($form, &$form_state, $regi
     '#value' => $block_info,
   );
 
-  if (!empty($existing['pages'])) {
-    $options = array();
-    foreach (explode("\n", $existing['pages']) as $path) {
+  $form['pages'] = array(
+    '#title'         => t("Pages from which this block must disappear"),
+    '#type'          => 'checkboxes',
+    '#options'       => array(),
+    '#required'      => TRUE,
+    '#default_value' => array(),
+  );
+
+  $options = array();
+  $default = array();
+
+  if (isset($_GET['destination'])) {
+    // When we have a destination, delete only the current page and aliases.
+    $path = drupal_get_normal_path($_GET['destination']);
+    $options[$path] = $path;
+
+    // Also ensure we don't have any aliases remaining.
+    foreach (nodeblock_edit_path_get_all_aliases($_GET['destination']) as $path) {
       $options[$path] = $path;
     }
-    $form['pages'] = array(
-      '#title'         => t("Pages from which this block must disappear"),
-      '#type'          => 'checkboxes',
-      '#options'       => $options,
-      '#required'      => TRUE,
-      '#default_value' => array(),
-    );
 
-    if (isset($_GET['destination'])) {
-      // When we have a destination, delete only the current page and aliases.
-      $form['pages']['#default_value'][$_GET['destination']] = $_GET['destination'];
+    $default = $options;
 
-      foreach (nodeblock_edit_path_get_all_aliases($_GET['destination']) as $path) {
-        $form['pages']['#default_value'][$path] = $path;
-      }
-
-      $form['pages']['#description'] = '<strong>' . t("Path aliases have been auto-detected from the page you come from.") . '</strong>';
-      $form['pages']['#disabled']    = TRUE;
-
-    } else {
-      // Per default, suppress all.
-      $form['pages']['#default_value'] = $options;
-    }
+    $form['pages']['#description'] = '<strong>' . t("Path aliases have been auto-detected from the page you come from.") . '</strong>';
+    $form['pages']['#disabled']    = TRUE;
   } else {
-    $form['pages'] = array(
-      '#type'  => 'value',
-      '#value' => array(),
-    );
+    // Load all path this block might be (slow operation).
+    $options = db_select('nodeblock_edit_path', 'np')
+      ->fields('np', array('path', 'path'))
+      ->condition('np.module', $module)
+      ->condition('np.delta', $delta)
+      ->execute()
+      ->fetchAllKeyed();
   }
+
+  // Set the correct values into the field.
+  $form['pages']['#options'] = $options;
+  $form['pages']['#default_value'] = $default;
 
   return confirm_form($form, t("Delete the selected blocks"), isset($_GET['destination']) ? $_GET['destination'] : request_path());
 }
 
+/**
+ * Block delete form submit handler.
+ */
 function nodeblock_edit_page_region_block_delete_form_submit($form, &$form_state) {
 
   list($region, $theme) = $form_state['values']['region_info'];
@@ -683,47 +637,21 @@ function nodeblock_edit_page_region_block_delete_form_submit($form, &$form_state
 
   if (!empty($pages)) {
 
-    $existing = db_select('block', 'b')
-      ->fields('b')
-      ->condition('b.theme',  $theme)
-      ->condition('b.module', $module)
-      ->condition('b.delta',  $delta)
-      ->execute()
-      ->fetchAssoc();
+    db_delete('nodeblock_edit_path')
+      ->condition('module',  $module)
+      ->condition('delta', $delta)
+      ->condition('region', $region)
+      ->condition('path', $pages)
+      ->execute();
 
-    $original_pages = array_unique(explode("\n", $existing['pages']));
-    $pages          = array_filter(array_values($pages));
-    $diff           = array_diff($original_pages, $pages);
+    drupal_set_message(t("Removed block from the selected pages."));
 
-    if (empty($diff)) {
-      // Fully delete block.
-      db_delete('block')
-        ->condition('theme',  $theme)
-        ->condition('module', $module)
-        ->condition('delta',  $delta)
-        ->execute();
-
-      drupal_set_message(t("Removed block from all pages."));
-
-    } else {
-      // Update the block with only diffed remaining pages.
-      db_update('block')
-        ->fields(array(
-          'pages' => implode("\n", $diff)
-        ))
-        ->condition('theme',  $theme)
-        ->condition('module', $module)
-        ->condition('delta',  $delta)
-        ->execute();
-
-      drupal_set_message(t("Removed block from the selected pages."));
-    }
   } else {
-    // Fully delete block.
-    db_delete('block')
-      ->condition('theme',  $theme)
-      ->condition('module', $module)
-      ->condition('delta',  $delta)
+
+    db_delete('nodeblock_edit_path')
+      ->condition('module',  $module)
+      ->condition('delta', $delta)
+      ->condition('region', $region)
       ->execute();
 
     drupal_set_message(t("Removed block from all pages."));

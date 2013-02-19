@@ -6,45 +6,163 @@
  */
 
 /**
- * Implements hook_schema_alter().
+ * Implements hook_schema().
  */
-function nodeblock_edit_schema_alter(&$schema) {
-  $schema['block']['fields']['nodeblock_edit_custom'] = array(
-    'description' => 'Block is handled by node block edit module',
-    'type'        => 'int',
-    'not null'    => TRUE,
-    'default'     => 0,
-  );
-}
+function nodeblock_edit_schema() {
 
-/**
- * Implements hook_uninstall().
- */
-function nodeblock_edit_install() {
-  db_add_field('block', 'nodeblock_edit_custom', array(
-    'description' => 'Block is handled by node block edit module',
-    'type'        => 'int',
-    'not null'    => TRUE,
-    'default'     => 0,
-  ));
+  $schema = array();
+
+  $schema['nodeblock_edit_path'] = array(
+    'description' => 'Stores block reference to pages',
+    'fields' => array(
+      'module' => array(
+        'description' => "Module name",
+        'type'        => 'varchar',
+        'length'      => 64,
+        'not null'    => TRUE,
+      ),
+      'delta' => array(
+        'description' => "Block delta",
+        'type'        => 'varchar',
+        'length'      => 32,
+        'not null'    => TRUE,
+      ),
+      'region' => array(
+        'description' => "Region where to display",
+        'type'        => 'varchar',
+        'length'      => 64,
+        'not null'    => TRUE,
+      ),
+      'path' => array(
+        'description' => "Primary path this block is displayed into",
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+      ),
+      'path_hash' => array(
+        'description' => "Primary path this block is displayed into unconsistent hash",
+        'type'        => 'int',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
+      ),
+      'weight' => array(
+        'description' => "Block weigth",
+        'type'        => 'int',
+        'not null'    => TRUE,
+        'default'     => 0,
+      ),
+    ),
+    'indexes' => array(
+      // For admin UI.
+      'nodeblock_edit_page_path_hash_idx' => array('path_hash'),
+      // For hook_block_list_alter() (next two entries).
+      'nodeblock_edit_page_alter_idx'     => array('region', 'path_hash'),
+      'nodeblock_edit_page_weight_idx'    => array('weight'),
+    ),
+  );
+
+  return $schema;
 }
 
 /**
  * Implements hook_uninstall().
  */
 function nodeblock_edit_uninstall() {
-  db_drop_field('block', 'nodeblock_edit_custom');
-  variable_del('nodeblock_edit_enabled_regions');
+  module_load_include('module', 'nodeblock_edit');
+  variable_del(NODEBLOCK_EDIT_VAR_REGION_LINK);
+  variable_del(NODEBLOCK_EDIT_VAR_REGION_ENABLED);
 }
 
 /**
- * Adds the {block}.nodeblock_edit_custom field.
+ * Adds the new {nodeblock_edit_page} table, move custom blocks into it and
+ * removes the {block}.nodeblock_edit_custom field.
  */
-function nodeblock_edit_update_7001() {
-  db_add_field('block', 'nodeblock_edit_custom', array(
-    'description' => 'Block is handled by node block edit module',
-    'type'        => 'int',
-    'not null'    => TRUE,
-    'default'     => 0,
-  ));
+function nodeblock_edit_update_7002(&$sandbox) {
+
+  if (db_table_exists('nodeblock_edit_path')) {
+    // Failsafe because Drush likes to run the updates twice.
+    return;
+  }
+
+  if (!db_field_exists('block', 'nodeblock_edit_custom')) {
+    // This update is unnecessary.
+    return;
+  }
+
+  // Needed for hashing function.
+  module_load_include('module', 'nodeblock_edit');
+
+  if (empty($sandbox['total'])) {
+    $sandbox['progress'] = 0;
+    $sandbox['total'] = db_query("SELECT COUNT(*) FROM {block} WHERE nodeblock_edit_custom = 1")->fetchField();
+
+    db_create_table(
+      'nodeblock_edit_path',
+      drupal_get_schema_unprocessed(
+        'nodeblock_edit',
+        'nodeblock_edit_path'));
+  }
+
+  $limit  = 50;
+  $remove = array();
+
+  $blocks = db_select('block', 'b')
+    ->fields('b')
+    ->condition('b.nodeblock_edit_custom', 1)
+    ->range(0, $limit)
+    ->execute()
+    ->fetchAll();
+
+  if (empty($blocks)) {
+    $sandbox['#finished'] = 1;
+    db_drop_field('block', 'nodeblock_edit_custom');
+    return;
+  }
+
+  $count = 0;
+  $query = db_insert('nodeblock_edit_path');
+  $query->fields(array('module', 'delta', 'region', 'path', 'path_hash', 'weight'));
+
+  foreach ($blocks as $block) {
+
+    if (!empty($block->pages)) {
+      // Find canonical pathes, if exist, and drop every block that has no
+      // valid path to expose. We don't handle language path from here so you
+      // might end up with duplicates (sorry).
+      $pathlist = array();
+      foreach (explode("\n", $block->pages) as $path) {
+        if ($source = drupal_lookup_path('source', $path)) {
+          $pathlist[] = $source;
+        }
+      }
+
+      if (!empty($pathlist)) {
+        foreach (array_unique($pathlist) as $path) {
+
+          $query->values(array(
+            'module'    => $block->module,
+            'delta'     => $block->delta,
+            'region'    => $block->region,
+            'path'      => $path,
+            'path_hash' => nodeblock_edit_hash($path),
+            'weight'    => $block->weight,
+          ));
+
+          ++$count;
+        }
+      }
+    }
+
+    $remove[] = $block->bid;
+  }
+
+  if ($count) {
+    $query->execute();
+  }
+
+  db_delete('block')
+    ->condition('b.bid', $remove)
+    ->execute();
+
+  cache_clear_all();
 }
