@@ -158,7 +158,8 @@ function nodeblock_edit_nodeblock_edit_alter(&$blocks) {
 function nodeblock_edit_block_info() {
   return array(
     'add' => array(
-      'info' => t("Add block links"),
+      'info'  => t("Add block links"),
+      'cache' => DRUPAL_NO_CACHE
     ),
   );
 }
@@ -167,7 +168,7 @@ function nodeblock_edit_block_info() {
  * Implements hook_block_view().
  */
 function nodeblock_edit_block_view($delta = '') {
-  if ('add' === $delta) {
+  if ('add' === $delta && user_access('nodeblock edit manage block')) {
 
     global $theme_key;
     $content = array();
@@ -185,7 +186,6 @@ function nodeblock_edit_block_view($delta = '') {
 
     if (!empty($content)) {
       return array(
-        // 'subject' => t("Add block"),
         'content' => $content,
       );
     }
