@@ -365,7 +365,7 @@ function nodeblock_edit_region_load($region_id) {
  *   Original Drupal path (unaliased) if valid, false if not valid.
  */
 function nodeblock_edit_path_is_valid($path) {
-  $path = drupal_get_normal_path($value);
+  $path = drupal_get_normal_path($path);
   if ($item = menu_get_item($path)) {
     return $path;
   } else {
