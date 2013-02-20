@@ -268,7 +268,7 @@ function nodeblock_edit_page_region_add_page_form_submit_add($form, &$form_state
 /**
  * Edit or move block into region.
  */
-function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info) {
+function nodeblock_edit_page_region_move($form, &$form_state, $region_info) {
 
   if (!isset($_GET['destination'])) {
     return MENU_NOT_FOUND;
@@ -281,7 +281,7 @@ function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info
   list($region) = $region_info;
 
   $form['#tree']  = TRUE;
-  $form['#theme'] = 'nodeblock_edit_page_region_block_form';
+  $form['#theme'] = 'nodeblock_edit_page_region_move';
 
   $custom = db_select('nodeblock_edit_path', 'np')
     ->fields('np')
@@ -322,7 +322,7 @@ function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info
     'submit' => array(
       '#type'   => 'submit',
       '#value'  => t("Save changes"),
-      '#submit' => array('nodeblock_edit_page_region_block_form_submit_edit'),
+      '#submit' => array('nodeblock_edit_page_region_move_submit_edit'),
     ),
   );
 
@@ -332,7 +332,7 @@ function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info
 /**
  * Edit or move block into region submit handler.
  */
-function nodeblock_edit_page_region_block_form_submit_edit($form, &$form_state) {
+function nodeblock_edit_page_region_move_submit_edit($form, &$form_state) {
 
   list($region, $theme) = $form_state['values']['region_info'];
 
@@ -364,7 +364,7 @@ function nodeblock_edit_page_region_block_form_submit_edit($form, &$form_state) 
 /**
  * Render the form table drag.
  */
-function theme_nodeblock_edit_page_region_block_form(&$variables) {
+function theme_nodeblock_edit_page_region_move(&$variables) {
   $form = &$variables['form'];
 
   $rows = array();

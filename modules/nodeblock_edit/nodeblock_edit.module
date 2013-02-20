@@ -98,18 +98,10 @@ function nodeblock_edit_menu() {
     'type'             => MENU_CALLBACK | MENU_VISIBLE_IN_BREADCRUMB,
     'file'             => 'nodeblock_edit.pages.inc',
   );
-  $items['admin/structure/region/%nodeblock_edit_region/%nodeblock_edit_block'] = array(
-    'title'            => "Block",
+  $items['admin/structure/region/%nodeblock_edit_region/move'] = array(
+    'title'            => "Move blocks on this page",
     'page callback'    => 'drupal_get_form',
-    'page arguments'   => array('nodeblock_edit_page_region_block_form', 3, 4),
-    'access arguments' => array('nodeblock edit manage block'),
-    'type'             => MENU_CALLBACK | MENU_VISIBLE_IN_BREADCRUMB,
-    'file'             => 'nodeblock_edit.pages.inc',
-  );
-  $items['admin/structure/region/%nodeblock_edit_region/%nodeblock_edit_block/edit'] = array(
-    'title'            => "Move or edit this block",
-    'page callback'    => 'drupal_get_form',
-    'page arguments'   => array('nodeblock_edit_page_region_block_form', 3, 4),
+    'page arguments'   => array('nodeblock_edit_page_region_move', 3),
     'access arguments' => array('nodeblock edit manage block'),
     'type'             => MENU_LOCAL_ACTION | MENU_VISIBLE_IN_BREADCRUMB,
     'context'          => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
@@ -153,7 +145,7 @@ function nodeblock_edit_menu() {
  */
 function nodeblock_edit_theme() {
   return array(
-    'nodeblock_edit_page_region_block_form' => array(
+    'nodeblock_edit_page_region_move' => array(
       'render element' => 'form',
       'file' => 'nodeblock_edit.pages.inc',
     ),
