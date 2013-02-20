@@ -356,15 +356,32 @@ function nodeblock_edit_region_load($region_id) {
 }
 
 /**
+ * Tell if the given path is valid.
+ *
+ * @param string $path
+ *   Path.
+ *
+ * @return boolean|string
+ *   Original Drupal path (unaliased) if valid, false if not valid.
+ */
+function nodeblock_edit_path_is_valid($path) {
+  $path = drupal_get_normal_path($value);
+  if (!$item = menu_get_item($path)) {
+    return $path;
+  } else {
+    return false;
+  }
+}
+
+/**
  * Simple path element validate handler.
  */
 function nodeblock_edit_path_element_validate($element, &$form_state, $form) {
   $value = $element['#value'];
   if (!empty($value)) {
-    $path = drupal_get_normal_path($value);
-    if (!$item = menu_get_item($path)) {
+    if (!$path = nodeblock_edit_path_is_valid($value)) {
       form_error($element, t("@path path does not exist in site", array(
-      '@path' => $value,
+        '@path' => $value,
       )));
     } else if ($path !== $value) {
       form_set_value($element, $path, $form_state);
@@ -390,7 +407,7 @@ function nodeblock_edit_block_id_element_validate($element, &$form_state, $form)
     )));
   } else {
     // Fetch block id (everything before '.'.
-    if (false !== strpos(':', $value)) {
+    if (false !== strpos($value, ':')) {
       list($block_id, ) = explode(':', $value);
     } else {
       $block_id = $value;

@@ -268,7 +268,7 @@ function nodeblock_edit_page_region_add_page_form_submit_add($form, &$form_state
 /**
  * Edit or move block into region.
  */
-function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info, $block_info) {
+function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info) {
 
   if (!isset($_GET['destination'])) {
     return MENU_NOT_FOUND;
@@ -278,10 +278,10 @@ function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info
 
   $path = drupal_get_normal_path($_GET['destination']);
 
-  list($module, $id)    = $block_info;
   list($region, $theme) = $region_info;
 
-  $form['#tree'] = TRUE;
+  $form['#tree']  = TRUE;
+  $form['#theme'] = 'nodeblock_edit_page_region_block_form';
 
   $custom = db_select('nodeblock_edit_path', 'np')
     ->fields('np')
@@ -308,10 +308,6 @@ function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info
     );
   }
 
-  $form['block_info'] = array(
-    '#type'  => 'value',
-    '#value' => $block_info,
-  );
   $form['region_info'] = array(
     '#type'  => 'value',
     '#value' => $region_info,
