@@ -125,7 +125,7 @@ function nodeblock_edit_menu() {
   );
 
   // Specific autocomplete that allows to search over blocks.
-  $items['admin/structure/region/%nodeblock_edit_region/autocomplete'] = array(
+  $items['admin/structure/region/block/autocomplete'] = array(
     'page callback'    => 'nodeblock_edit_autocomplete',
     'page arguments'   => array(3),
     'access arguments' => array('nodeblock edit manage block'),
@@ -310,6 +310,21 @@ function nodeblock_edit_region_enabled_get() {
 }
 
 /**
+ * Get options list for region select form element.
+ *
+ * @return array
+ *   Keys are region identifiers, values are region names.
+ */
+function nodeblock_edit_region_enabled_option_list() {
+  $options = array();
+  foreach (nodeblock_edit_region_enabled_get() as $region_id) {
+    list($region, $theme) = explode('.', $region_id, 2);
+    $options[$region_id] = nodeblock_edit_region_title(array($region, $theme));
+  }
+  return $options;
+}
+
+/**
  * Menu helper.
  */
 function nodeblock_edit_block_load($block_id) {
@@ -337,6 +352,51 @@ function nodeblock_edit_region_load($region_id) {
     return explode('.', $region_id, 2);
   } else {
     return FALSE;
+  }
+}
+
+/**
+ * Simple path element validate handler.
+ */
+function nodeblock_edit_path_element_validate($element, &$form_state, $form) {
+  $value = $element['#value'];
+  if (!empty($value)) {
+    $path = drupal_get_normal_path($value);
+    if (!$item = menu_get_item($path)) {
+      form_error($element, t("@path path does not exist in site", array(
+      '@path' => $value,
+      )));
+    } else if ($path !== $value) {
+      form_set_value($element, $path, $form_state);
+    }
+  }
+}
+
+/**
+ * Autocomplete validate function that will truncate any uneeded information
+ * and set a machine value into field value.
+ */
+function nodeblock_edit_block_id_element_validate($element, &$form_state, $form) {
+  $value = $element['#value'];
+
+  // Check that given input correspond to a valid block identifier:
+  // MODULE.DELTA[:DESCRIPTION].
+  // ":" and description are optional, delta can contain dots too, this is
+  // possible because module names will never ever contain garbage because
+  // they need to be compatible with PHP valid function names in Drupal.
+  if (!preg_match('/^[^\.^:]+\.[^:]+(|:.*)$/', $value)) {
+    form_error($element, t("Invalid value, must be %example", array(
+      '%example' => 'module.delta[: <string value>]',
+    )));
+  } else {
+    // Fetch block id (everything before '.'.
+    if (false !== strpos(':', $value)) {
+      list($block_id, ) = explode(':', $value);
+    } else {
+      $block_id = $value;
+    }
+
+    form_set_value($element, $block_id, $form_state);
   }
 }
 

@@ -201,7 +201,8 @@ function nodeblock_edit_page_region_add_page_form($form, &$form_state, $region_i
   $form['id'] = array(
     '#title'             => t("Search for an existing bloc"),
     '#type'              => 'textfield',
-    '#autocomplete_path' => 'admin/structure/region/' . $region_info[0] . '.' . $region_info[1] . '/autocomplete',
+    '#autocomplete_path' => 'admin/structure/region/block/autocomplete',
+    '#element_validate'  => array('nodeblock_edit_block_id_element_validate'),
     '#description'       => t("Search for pages on your site."),
   );
 
@@ -501,7 +502,8 @@ function nodeblock_edit_autocomplete($region_info, $string) {
       } else {
         $key = 'nodeblock.' . $data->nid;
       }
-      $matches[$key] = check_plain($data->title) . ' [' . $data->language . ']';
+      $value = $key . ': ' . check_plain($data->title) . ' [' . $data->language . ']';
+      $matches[$value] = $value;
     }
   }
 
