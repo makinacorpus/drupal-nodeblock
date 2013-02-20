@@ -278,7 +278,7 @@ function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info
 
   $path = drupal_get_normal_path($_GET['destination']);
 
-  list($region, $theme) = $region_info;
+  list($region) = $region_info;
 
   $form['#tree']  = TRUE;
   $form['#theme'] = 'nodeblock_edit_page_region_block_form';
@@ -301,7 +301,7 @@ function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info
       '#default_value' => $info->weight,
     );
     $form['blocks'][$id]['info'] = array(
-      '#markup'        => nodeblock_edit_block_find_title($block->module, $block->delta),
+      '#markup'        => nodeblock_edit_block_find_title($info->module, $info->delta),
     );
     $form['blocks'][$id]['module'] = array(
       '#markup'        => $modules[$info->module],
