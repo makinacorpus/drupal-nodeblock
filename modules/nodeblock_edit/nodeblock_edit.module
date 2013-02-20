@@ -6,6 +6,7 @@
  *
  * @todo
  *   - Move all admin pages under the same as the nodeblock module.
+ *   - Fix theme not being part of block info anymore.
  */
 
 /**
@@ -208,8 +209,7 @@ function nodeblock_edit_block_list_alter(&$block_list) {
   $path = current_path();
   $foo  = 0;
 
-  // WIN! SQL request using a CONST index only using MySQL.
-  // FOUK YU DRUPAL!
+  // SQL request using a CONST index only using MySQL.
   $custom = db_select('nodeblock_edit_path', 'np')
     ->fields('np')
     ->condition('np.region', $regions)
