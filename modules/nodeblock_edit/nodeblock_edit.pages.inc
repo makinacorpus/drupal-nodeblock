@@ -131,9 +131,12 @@ function nodeblock_edit_path_get_all_aliases($path) {
   $ret = array();
 
   // First find path aliases.
+  /*
   if (($alias = drupal_get_path_alias($path)) && $alias !== $path) {
     $ret[] = $alias;
   }
+   */
+  $ret[] = drupal_get_normal_path($path);
 
   // Then try with i18n module.
   if (drupal_multilingual() && module_exists('i18n')) {
@@ -286,21 +289,6 @@ function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info
     ->execute()
     ->fetchAll();
 
-  foreach ($custom as $info) {
-    $function = $info->module . '_block_info';
-    if (function_exists($function)) {
-      $module_info = $function();
-      if (isset($module_info[$info->delta])) {
-        $info->info = $module_info[$info->delta]['info'];
-      }
-    }
-
-    if (!isset($info->info)) {
-      // Ugly fallback, sorry.
-      $block->info = '<em>' . $info->module . '-' . $info->delta . '</em>';
-    }
-  }
-
   $modules = module_list();
   foreach ($custom as $info) {
     $id = $block_id = $info->module . '.' . $info->delta;
@@ -312,7 +300,7 @@ function nodeblock_edit_page_region_block_form($form, &$form_state, $region_info
       '#default_value' => $info->weight,
     );
     $form['blocks'][$id]['info'] = array(
-      '#markup'        => $info->info,
+      '#markup'        => nodeblock_edit_block_find_title($block->module, $block->delta),
     );
     $form['blocks'][$id]['module'] = array(
       '#markup'        => $modules[$info->module],

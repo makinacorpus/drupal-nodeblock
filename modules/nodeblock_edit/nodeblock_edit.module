@@ -78,6 +78,7 @@ function nodeblock_edit_permission() {
 function nodeblock_edit_menu() {
   $items = array();
 
+  // Normal UI (contextual links mostly).
   $items['admin/structure/region'] = array(
     'title'            => "Regions edit settings",
     'page callback'    => 'drupal_get_form',
@@ -156,6 +157,33 @@ function nodeblock_edit_theme() {
       'file' => 'nodeblock_edit.pages.inc',
     ),
   );
+}
+
+/**
+ * Find block admin title.
+ *
+ * @param string $module
+ *   Module.
+ * @param string $delta
+ *   Delta.
+ *
+ * @return string
+ *   Block administrative information.
+ */
+function nodeblock_edit_block_find_title($module, $delta) {
+
+  $function = $module . '_block_info';
+
+  if (function_exists($function)) {
+    $module_info = $function();
+
+    if (isset($module_info[$delta])) {
+      return $module_info[$delta]['info'];
+    }
+  }
+
+  // Ugly fallback, sorry.
+  return '<em>' . $module . '-' . $delta . '</em>';
 }
 
 /**
