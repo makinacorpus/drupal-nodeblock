@@ -413,7 +413,7 @@ function nodeblock_edit_block_id_element_validate($element, &$form_state, $form)
  * Implements hook_block_view_alter().
  */
 function nodeblock_edit_block_view_alter(&$data, $block) {
-  if (!$block->_nodeblock) {
+  if (!isset($block->_nodeblock) || !$block->_nodeblock) {
     return;
   }
   $region_id = $block->region . '.' . $GLOBALS['theme_key'];
