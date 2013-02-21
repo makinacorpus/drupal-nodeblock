@@ -17,7 +17,7 @@ const NODEBLOCK_EDIT_VAR_REGION_LINK    = 'nodeblock_region_link';
 /**
  * Display link in regions default value.
  */
-const NODEBLOCK_DEF_VAR_REGION_LINK     = null;
+const NODEBLOCK_EDIT_DEF_REGION_LINK     = null;
 
 /**
  * Enabled regions variable.
